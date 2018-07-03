@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.spatial.distance as sd
 import pygame
 from pygame.locals import Rect
 
@@ -49,7 +50,8 @@ class Critter:
 
     @staticmethod
     def collides(a, b):
-        return np.sqrt((b.x - a.x)**2 + (b.y - a.y)**2) < \
+        #return np.sqrt((b.x - a.x)**2 + (b.y - a.y)**2) < \
+        return sd.euclidean((b.x, b.y), (a.x, a.y)) < \
             a.bounding_radius + b.bounding_radius
 
     @staticmethod
@@ -103,10 +105,28 @@ class Critter:
         self.size = size
         self.bounding_radius = size * Critter.HALF_SIZE
         #self.drag_multiplier = (1.0-Critter.DRAG) #np.sqrt(self.size)#
+        self.nearby_critters = []
+        #self.nearby_food = []
 
         self._update_sprite()
 
     def _step(self):
+
+        # AVAILABLE DATA
+        
+        view_radius = int(self.size**0.5 * 160)
+        view_dist = view_radius * 3 / 5.0
+        view_center = (
+            int(np.cos(self.angle) * view_dist + self.x),
+            int(-np.sin(self.angle) * view_dist + self.y))
+        self.nearby_critters = [c for c in Critter.instances if not 
+            Critter.instances[c].dead and sd.euclidean(
+                view_center, (Critter.instances[c].x, Critter.instances[c].y))
+            < view_radius]
+        #self.nearby_food
+
+        #pygame.draw.circle(self.world.background, pygame.Color(127,127,127),
+        #    view_center, view_radius, 1)
 
         # PHYSICS
 
@@ -145,7 +165,7 @@ class Critter:
         for k in Critter.keys:
             if (k > self.id and
                        self.dead == False and Critter.instances[k].dead == False):
-                if self.collides(self, Critter.instances[k]):
+                if self.collides(self, Critter.instances[k]): #NOTE! SWITCH SIZE AND COLLISION CHECK FOR SPEEDUP UNLESS NEED OTHER COLLISIONS!
                     if self.size > Critter.instances[k].size + Critter.SIZE_DELTA:
                         self.grow(Critter.instances[k].size)
                         Critter.instances[k].kill()
